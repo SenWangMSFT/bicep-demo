@@ -1,0 +1,48 @@
+name: Deploy Bicep
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  deploy-dev:
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy Bicep to Dev
+        run: |
+          az deployment group create \
+            --resource-group "bicep-demos" \
+            --template-file bicep/main.bicep \
+            --parameters @bicep/dev.parameters.json
+
+  deploy-prod:
+    if: ${{ github.event_name == 'push' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy Bicep to Prod
+        run: |
+          az deployment group create \
+            --resource-group "bicep-demos" \
+            --template-file bicep/main.bicep \
+            --parameters @bicep/prod.parameters.json
