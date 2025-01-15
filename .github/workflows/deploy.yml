@@ -7,9 +7,45 @@ on:
     branches: [main]
 
 jobs:
+  publish-module:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      
+      - name: Build the Bicep file
+        run: |
+          az bicep build --file bicep/modules/appService.bicep
+
+      - name: Build Docker image
+        run: |
+          docker build -t acrremotemodules.azurecr.io/modules/appservice:v1 bicep/modules
+
+      - name: Bicep upgrade
+        run: |
+            az bicep upgrade
+
+      - name: ACR Login
+        run: |
+          az acr login --name acrremotemodules
+
+      - name: Publish Bicep module to ACR
+        run: |
+          az bicep publish \
+            --file bicep/modules/appService.bicep \
+            --target br:acrremotemodules.azurecr.io/modules/appservice:v1 --force
+
   deploy-dev:
     if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
+
+    needs: [publish-module]
 
     steps:
       - name: Check out code
@@ -30,6 +66,8 @@ jobs:
   deploy-prod:
     if: ${{ github.event_name == 'push' }}
     runs-on: ubuntu-latest
+
+    needs: [publish-module]
 
     steps:
       - name: Check out code
